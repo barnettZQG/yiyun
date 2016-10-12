@@ -20,6 +20,7 @@ type ActionInterface interface {
 	GetCode() int
 	IsJSON() bool
 	Postpare()
+	SetData(map[string]string)
 }
 
 //Action 控制器结构
@@ -54,6 +55,13 @@ func (a *Action) Init(ctx *fasthttp.RequestCtx, methodName string) {
 func (a *Action) defaultData() {
 	a.Data["web_title"] = Get("APPTITLE")
 	a.Data["web_url"] = Get("APPURL")
+}
+
+//SetData 设置访问参数
+func (a *Action) SetData(data map[string]string) {
+	for k, v := range data {
+		a.Data[k] = v
+	}
 }
 func (a *Action) Prepare() {
 
@@ -133,4 +141,20 @@ func (a *Action) Postpare() {
 		a.Ctx.SetContentType("text/html;charset=utf8")
 	}
 
+}
+
+type jsonData struct {
+	Message string      `json:"mesage"`
+	Status  string      `json:"status"`
+	Data    interface{} `json:"data"`
+}
+
+//SetJSONData 设置json api返回的数据
+func (a *Action) SetJSONData(data interface{}, message, status string) {
+	a.Data["json"] = &jsonData{
+		Data:    data,
+		Message: message,
+		Status:  status,
+	}
+	a.ServserJSON()
 }

@@ -30,7 +30,7 @@ func (p Rule) String() string {
 
 //IsPass 路由是否符合此规则
 //url: /member/1/helloword
-func (p Rule) IsPass(url string) bool {
+func (p Rule) IsPass(url string, data map[string]string) bool {
 
 	if p.String() == url {
 		return true
@@ -52,6 +52,13 @@ func (p Rule) IsPass(url string) bool {
 				return false
 			}
 		}
+		if psT[0] == ':' {
+			if urls[i] == "" {
+				return false
+			}
+			//路由数据封装
+			data[psT] = urls[i]
+		}
 	}
 	log.Debug("path:", p.String(), "url:", url)
 	return true
@@ -63,6 +70,7 @@ type RouterInfo struct {
 	Action     ActionInterface
 	MethodName string
 	MethodType string
+	Data       map[string]string
 }
 
 var routers []*RouterInfo
@@ -85,8 +93,14 @@ func Router(p string, action ActionInterface, methodType, methodName string) {
 		Action:     action,
 		MethodName: methodName,
 		MethodType: methodType,
+		Data:       make(map[string]string),
 	}
 	routers = append(routers, info)
+}
+
+//AnalyzeRouter 分析路由，判断准人规则，取出参数
+func (r *RouterInfo) AnalyzeRouter(path string) bool {
+	return r.Rule.IsPass(path, r.Data)
 }
 
 //GetRouter 获取路由
@@ -95,8 +109,10 @@ func GetRouter(path string, methodType string) (info *RouterInfo) {
 		return nil
 	}
 	for _, router := range routers {
-		if router.Rule.IsPass(path) {
-			return router
+		if router.AnalyzeRouter(path) {
+			if strings.ToUpper(router.MethodType) == strings.ToUpper(methodType) {
+				return router
+			}
 		}
 	}
 	return nil

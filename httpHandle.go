@@ -24,6 +24,10 @@ func RequestHandler(ctx *fasthttp.RequestCtx) {
 
 //ActionDispatch 控制器方法调度
 func ActionDispatch(ctx *fasthttp.RequestCtx) {
+	//执行拦截
+	if RunIntercept(ctx) {
+		return
+	}
 	path := string(ctx.Path())
 	method := string(ctx.Method())
 	router := GetRouter(path, method)
@@ -37,13 +41,18 @@ func ActionDispatch(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	action.Init(ctx, router.MethodName)
+	action.SetData(router.Data)
 	action.Prepare()
 	if fn, ok := reflect.TypeOf(action).MethodByName(router.MethodName); ok {
 		params := make([]reflect.Value, 1)
 		params[0] = reflect.ValueOf(action)
 		fn.Func.Call(params)
 		if action.IsJSON() {
-			Success(ctx, action.GetData(), action.GetCode())
+			js := action.GetData()["json"]
+			if js == nil {
+				panic("json data is not exit")
+			}
+			Success(ctx, js, action.GetCode())
 		} else {
 			action.Postpare()
 		}
@@ -101,7 +110,6 @@ func ErrorRe(ctx *fasthttp.RequestCtx, message string, code int) {
 func Success(ctx *fasthttp.RequestCtx, data interface{}, code int) {
 	ctx.Response.SetStatusCode(code)
 	ctx.SetContentType("text/json; charset=utf8")
-
 	content, err := json.Marshal(data)
 	if err != nil {
 		Error("marshal response json error.", err)
