@@ -96,6 +96,7 @@ func Router(p string, action ActionInterface, methodType, methodName string) {
 		Data:       make(map[string]string),
 	}
 	routers = append(routers, info)
+	Debug("Add router:", p)
 }
 
 //AnalyzeRouter 分析路由，判断准人规则，取出参数

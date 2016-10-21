@@ -21,6 +21,7 @@ func init() {
 		if err != nil {
 			Panic("httpserver get current app path error", err)
 		}
+		//APPPath = "/Users/qingguo/gowork/src/yiyun-docker/"
 	}
 	load()
 }

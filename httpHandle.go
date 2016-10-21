@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -78,11 +77,12 @@ func StaticSourceDispatch(p Path, ctx *fasthttp.RequestCtx) {
 			} else {
 				//log.Debug("static file send:", staticFile)
 				//ctx.SendFile(staticFile)
-				if strings.HasSuffix(staticFile, ".css") || strings.HasSuffix(staticFile, ".js") {
-					fasthttp.ServeFile(ctx, staticFile)
-				} else {
-					fasthttp.ServeFileUncompressed(ctx, staticFile)
-				}
+				fasthttp.ServeFile(ctx, staticFile)
+				// if strings.HasSuffix(staticFile, ".css") || strings.HasSuffix(staticFile, ".js") {
+				// 	fasthttp.ServeFile(ctx, staticFile)
+				// } else {
+				// 	fasthttp.ServeFileUncompressed(ctx, staticFile)
+				// }
 			}
 		} else {
 			ctx.NotFound()
