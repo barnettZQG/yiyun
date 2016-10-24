@@ -11,6 +11,7 @@ import (
 type ActionInterface interface {
 	//Init 初始化
 	Init(ctx *fasthttp.RequestCtx, methodName string)
+	Dispatch(method string, action ActionInterface)
 	Prepare()
 	Get()
 	Post()
@@ -38,6 +39,8 @@ type Action struct {
 	actionName string
 	methodName string
 	Args       *fasthttp.Args
+	Header     map[string]interface{}
+	Session    Session
 }
 
 //Init 初始化
@@ -50,11 +53,25 @@ func (a *Action) Init(ctx *fasthttp.RequestCtx, methodName string) {
 	a.methodName = methodName
 	a.Data = make(map[string]interface{}, 0)
 	a.defaultData()
+	a.parseHeader()
+	a.Session = GetGlobalSessions().GetSession(&ctx.Response, &ctx.Request)
+}
+
+//CreateSession 创建session
+func (a *Action) CreateSession() {
+	a.Session = GetGlobalSessions().CreateSession(&a.Ctx.Response, &a.Ctx.Request)
+}
+func (a *Action) parseHeader() {
+	a.Header = make(map[string]interface{}, 0)
+	a.Ctx.Request.Header.VisitAll(func(key, value []byte) {
+		a.Header[string(key)] = interface{}(value)
+	})
 }
 
 func (a *Action) defaultData() {
 	a.Data["web_title"] = Get("APPTITLE")
 	a.Data["web_url"] = Get("APPURL")
+
 }
 
 //SetData 设置访问参数
@@ -63,9 +80,18 @@ func (a *Action) SetData(data map[string]string) {
 		a.Data[k] = v
 	}
 }
+
+//Dispatch 不使用反射调用控制层方法
+func (a *Action) Dispatch(method string, action ActionInterface) {
+
+}
+
+//Prepare 控制器前执行
 func (a *Action) Prepare() {
 
 }
+
+//Get get方法
 func (a *Action) Get() {
 
 }
@@ -117,6 +143,7 @@ func (a *Action) IsJSON() bool {
 
 //Postpare Action执行之后执行，解析模版
 func (a *Action) Postpare() {
+	//解析模版
 	if a.Tpl == "" {
 		a.Tpl = strings.ToUpper(a.methodName)
 	}
@@ -140,7 +167,27 @@ func (a *Action) Postpare() {
 		}
 		a.Ctx.SetContentType("text/html;charset=utf8")
 	}
+}
 
+//GetFromCookie 从cookie中读取数据
+func (a *Action) GetFromCookie(key string) []byte {
+	return a.Request.Header.Cookie(key)
+}
+
+//CreateCookie 创建cookie
+func (a *Action) CreateCookie() *fasthttp.Cookie {
+	return fasthttp.AcquireCookie()
+}
+
+//SetCookie add cookie to response
+func (a *Action) SetCookie(cookie *fasthttp.Cookie) {
+	a.Response.Header.SetCookie(cookie)
+}
+
+//Redirect 设置客户端重定向
+func (a *Action) Redirect(url string) {
+	a.Code = 302
+	a.Ctx.Response.Header.Add("Location", url)
 }
 
 type jsonData struct {
