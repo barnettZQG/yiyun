@@ -71,7 +71,14 @@ func (a *Action) parseHeader() {
 func (a *Action) defaultData() {
 	a.Data["web_title"] = Get("APPTITLE")
 	a.Data["web_url"] = Get("APPURL")
-
+	a.Ctx.Request.PostArgs().VisitAll(func(k, v []byte) {
+		Debug("post:k", string(k), "v:", string(v))
+		a.Data[string(k)] = interface{}(v)
+	})
+	a.Ctx.QueryArgs().VisitAll(func(k, v []byte) {
+		Debug("query:k", string(k), "v:", string(v))
+		a.Data[string(k)] = interface{}(v)
+	})
 }
 
 //SetData 设置访问参数
@@ -190,15 +197,15 @@ func (a *Action) Redirect(url string) {
 	a.Ctx.Response.Header.Add("Location", url)
 }
 
-type jsonData struct {
-	Message string      `json:"mesage"`
+type JsonData struct {
+	Message string      `json:"message"`
 	Status  string      `json:"status"`
 	Data    interface{} `json:"data"`
 }
 
 //SetJSONData 设置json api返回的数据
 func (a *Action) SetJSONData(data interface{}, message, status string) {
-	a.Data["json"] = &jsonData{
+	a.Data["json"] = &JsonData{
 		Data:    data,
 		Message: message,
 		Status:  status,

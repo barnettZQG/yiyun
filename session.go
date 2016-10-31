@@ -30,6 +30,7 @@ type Session interface {
 	Delete(key interface{}) error     //delete session value
 	SessionID() string                //back current sessionID
 	IsOverTime(maxLifeTime int64) bool
+	UpdateTime()
 }
 
 var provides = make(map[string]Provider)
@@ -58,7 +59,7 @@ var globalSessions *Manager
 func GetGlobalSessions() *Manager {
 	if globalSessions == nil {
 		var err error
-		globalSessions, err = NewManager("memory", "gosessionid", int64(time.Hour*24))
+		globalSessions, err = NewManager("memory", "gosessionid", int64(time.Minute*20))
 		if err != nil {
 			panic("session manager start error." + err.Error())
 		}
@@ -89,7 +90,7 @@ func (manager *Manager) GetSession(rs *fasthttp.Response, re *fasthttp.Request) 
 	manager.lock.Lock()
 	defer manager.lock.Unlock()
 	cookie := re.Header.Cookie(manager.cookieName)
-	Debug("session cookie id:", string(cookie))
+	//Debug("session cookie id:", string(cookie))
 	if cookie == nil {
 		return nil
 	}
@@ -104,6 +105,8 @@ func (manager *Manager) CreateSession(rs *fasthttp.Response, re *fasthttp.Reques
 	session, _ = manager.provider.SessionInit(sid)
 	cookie := fasthttp.AcquireCookie()
 	cookie.SetHTTPOnly(true)
+	//必须设置成“／”才能使session全站生效
+	cookie.SetPath("/")
 	cookie.SetExpire(time.Now().Add(time.Duration(manager.maxlifetime)))
 	cookie.SetKey(manager.cookieName)
 	cookie.SetValue(url.QueryEscape(sid))
@@ -122,7 +125,6 @@ func (manager *Manager) SessionDestroy(rs *fasthttp.Response, re *fasthttp.Reque
 	manager.provider.SessionDestroy(string(v))
 	cookie := fasthttp.AcquireCookie()
 	cookie.SetHTTPOnly(true)
-	cookie.SetPath("/")
 	cookie.SetExpire(time.Now())
 	cookie.SetKey(manager.cookieName)
 	cookie.SetValue(string(v))
@@ -182,6 +184,8 @@ func (m *memoryProvider) SessionRead(sid string) (Session, error) {
 	if m.data[sid] == nil {
 		return nil, fmt.Errorf("session is not exit")
 	}
+	//更新session时间
+	m.data[sid].UpdateTime()
 	return m.data[sid], nil
 }
 func (m *memoryProvider) SessionDestroy(sid string) error {
@@ -220,10 +224,10 @@ func (m *memoryProvider) SessionGC(maxLifeTime int64) {
 	if m.dataList == nil {
 		return
 	}
-	var sl *sessionList
-	sl = m.dataList
+	var sl sessionList
+	sl = *m.dataList
 	if sl.me.IsOverTime(maxLifeTime) && sl.isHead {
-		Info("session gc close :", sl.me.SessionID())
+		Info("session gc close headSession :", sl.me.SessionID())
 		if sl.next != nil {
 			sl.next.pre = nil
 			sl.next.isHead = true
@@ -235,16 +239,22 @@ func (m *memoryProvider) SessionGC(maxLifeTime int64) {
 		if sl.next == nil {
 			break
 		}
-		sl = sl.next
+		sl = *sl.next
 		if sl.me.IsOverTime(maxLifeTime) && !sl.isEnd {
-			sl.pre.next = sl.next
-			sl.next.pre = sl.pre
+			if sl.pre != nil {
+				sl.pre.next = sl.next
+			}
+			if sl.next != nil {
+				sl.next.pre = sl.pre
+			}
 			delete(m.data, sl.me.SessionID())
 			Info("session gc close :", sl.me.SessionID())
 		} else if sl.me.IsOverTime(maxLifeTime) && sl.isEnd {
-			sl.pre.next = nil
+			if sl.pre != nil {
+				sl.pre.next = nil
+			}
 			delete(m.data, sl.me.SessionID())
-			Info("session gc close :", sl.me.SessionID())
+			Info("session gc close endSession :", sl.me.SessionID())
 		}
 	}
 }
@@ -260,13 +270,17 @@ func (m *memoryProvider) createMemorySession(sid string) *memorySession {
 type memorySession struct {
 	data       map[interface{}]interface{}
 	createTime time.Time
+	updateTime time.Time
 	sessionID  string
 }
 
 var SessionTimeOutError error
 
 func (m *memorySession) IsOverTime(maxLifeTime int64) bool {
-	return time.Now().After(m.createTime.Add(time.Duration(maxLifeTime)))
+	return time.Now().After(m.updateTime.Add(time.Duration(maxLifeTime)))
+}
+func (m *memorySession) UpdateTime() {
+	m.updateTime = time.Now()
 }
 func (m *memorySession) Set(key, value interface{}) error {
 	if m.data == nil {

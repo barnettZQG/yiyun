@@ -71,7 +71,7 @@ func Bool(k string) bool {
 
 //Int 获取
 func Int(k string) int {
-	return avg.Int(k)
+	return int(avg.Get(k).(float64))
 }
 
 //Merge 合并
