@@ -31,17 +31,35 @@ func ActionDispatch(ctx *fasthttp.RequestCtx) {
 	method := string(ctx.Method())
 	router := GetRouter(path, method)
 	if router == nil {
-		ErrorRe(ctx, "请求路由不存在", 404)
+		ErrorReJSON(ctx, "请求路由不存在", 404)
 		return
 	}
-	action := router.Action
+	actionType := router.Action
+	vc := reflect.New(actionType)
+	action, ok := vc.Interface().(ActionInterface)
+	if !ok {
+		ErrorReJSON(ctx, "action is not ActionInterface", 404)
+		return
+	}
 	if action == nil {
-		ErrorRe(ctx, "请求路由不存在", 404)
+		ErrorReJSON(ctx, "请求路由不存在", 404)
 		return
 	}
 	action.Init(ctx, router.MethodName)
 	action.SetData(router.Data)
 	action.Prepare()
+	if ctx.IsDelete() {
+		action.Delete()
+	}
+	if ctx.IsGet() {
+		action.Get()
+	}
+	if ctx.IsPost() {
+		action.Post()
+	}
+	if ctx.IsPut() {
+		action.Put()
+	}
 	if fn, ok := reflect.TypeOf(action).MethodByName(router.MethodName); ok {
 		params := make([]reflect.Value, 1)
 		params[0] = reflect.ValueOf(action)
@@ -49,14 +67,15 @@ func ActionDispatch(ctx *fasthttp.RequestCtx) {
 		if action.IsJSON() {
 			js := action.GetData()["json"]
 			if js == nil {
-				panic("json data is not exit")
+				ErrorReJSON(ctx, "server response is empty", 500)
+			} else {
+				Success(ctx, js, action.GetCode())
 			}
-			Success(ctx, js, action.GetCode())
 		} else {
 			action.Postpare()
 		}
 	} else {
-		ErrorRe(ctx, "路由转发错误", 404)
+		ctx.Error("Router Action Error", 404)
 	}
 
 }
@@ -75,14 +94,7 @@ func StaticSourceDispatch(p Path, ctx *fasthttp.RequestCtx) {
 			if ok := fi.IsDir(); ok {
 				ctx.NotFound()
 			} else {
-				//log.Debug("static file send:", staticFile)
-				//ctx.SendFile(staticFile)
 				fasthttp.ServeFile(ctx, staticFile)
-				// if strings.HasSuffix(staticFile, ".css") || strings.HasSuffix(staticFile, ".js") {
-				// 	fasthttp.ServeFile(ctx, staticFile)
-				// } else {
-				// 	fasthttp.ServeFileUncompressed(ctx, staticFile)
-				// }
 			}
 		} else {
 			ctx.NotFound()
@@ -90,8 +102,8 @@ func StaticSourceDispatch(p Path, ctx *fasthttp.RequestCtx) {
 	}
 }
 
-//ErrorRe 错误返回
-func ErrorRe(ctx *fasthttp.RequestCtx, message string, code int) {
+//ErrorReJSON 错误返回
+func ErrorReJSON(ctx *fasthttp.RequestCtx, message string, code int) {
 	ctx.Response.SetStatusCode(code)
 	ctx.SetContentType("text/json; charset=utf8")
 	responseJSON := &ResponseJSON{

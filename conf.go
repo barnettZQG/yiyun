@@ -3,6 +3,8 @@ package yiyun
 import (
 	"os"
 
+	"strings"
+
 	"github.com/jingweno/conf"
 )
 
@@ -14,6 +16,28 @@ var (
 	avg          *conf.Conf
 )
 
+//SetStaticPathPre 设置静态文件path前缀
+func SetStaticPathPre(pre string) {
+	if strings.HasPrefix(pre, "/") {
+		StaticPath = pre
+	} else {
+		StaticPath = "/" + pre
+	}
+}
+
+//SetStaticSourcePre 设置静态文件路由路径
+func SetStaticSourcePre(pre string) {
+	if strings.HasPrefix(pre, "/") {
+		StaticSource = pre
+	} else {
+		StaticSource = "/" + pre
+	}
+}
+
+//SetServerName 设置server name
+func SetServerName(server string) {
+	Server = server
+}
 func init() {
 	if APPPath == "" {
 		var err error

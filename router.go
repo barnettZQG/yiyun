@@ -1,6 +1,7 @@
 package yiyun
 
 import (
+	"reflect"
 	"strings"
 )
 
@@ -67,7 +68,7 @@ func (p Rule) IsPass(url string, data map[string]string) bool {
 //RouterInfo 路由信息
 type RouterInfo struct {
 	Rule       Rule
-	Action     ActionInterface
+	Action     reflect.Type
 	MethodName string
 	MethodType string
 	Data       map[string]string
@@ -88,9 +89,10 @@ func Router(p string, action ActionInterface, methodType, methodName string) {
 	if action == nil {
 		log.Panic("action is not nil")
 	}
+	ac := reflect.TypeOf(action)
 	info := &RouterInfo{
 		Rule:       path,
-		Action:     action,
+		Action:     ac,
 		MethodName: methodName,
 		MethodType: methodType,
 		Data:       make(map[string]string),

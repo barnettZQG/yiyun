@@ -72,12 +72,33 @@ func (a *Action) defaultData() {
 	a.Data["web_title"] = Get("APPTITLE")
 	a.Data["web_url"] = Get("APPURL")
 	a.Ctx.Request.PostArgs().VisitAll(func(k, v []byte) {
-		Debug("post:k", string(k), "v:", string(v))
-		a.Data[string(k)] = interface{}(v)
+		//Debug("post:k", string(k), "v:", string(v))
+
+		//支持参数数组格式
+		if strings.HasSuffix(string(k), "[]") {
+			key := string(k)[0 : len(string(k))-2]
+			if a.Data[key] == nil {
+				a.Data[key] = make([]string, 0)
+			}
+			a.Data[key] = append(a.Data[key].([]string), string(v))
+		} else {
+			a.Data[string(k)] = interface{}(string(v))
+		}
+
 	})
 	a.Ctx.QueryArgs().VisitAll(func(k, v []byte) {
-		Debug("query:k", string(k), "v:", string(v))
-		a.Data[string(k)] = interface{}(v)
+		//Debug("query:k", string(k), "v:", string(v))
+
+		//支持参数数组格式
+		if strings.HasSuffix(string(k), "[]") {
+			key := string(k)[0 : len(string(k))-2]
+			if a.Data[key] == nil {
+				a.Data[key] = make([]string, 0)
+			}
+			a.Data[key] = append(a.Data[key].([]string), string(v))
+		} else {
+			a.Data[string(k)] = interface{}(string(v))
+		}
 	})
 }
 
