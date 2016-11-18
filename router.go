@@ -89,7 +89,7 @@ func Router(p string, action ActionInterface, methodType, methodName string) {
 	if action == nil {
 		log.Panic("action is not nil")
 	}
-	ac := reflect.TypeOf(action)
+	ac := reflect.Indirect(reflect.ValueOf(action)).Type()
 	info := &RouterInfo{
 		Rule:       path,
 		Action:     ac,
